@@ -11,9 +11,6 @@ int64_t fuel_cost(int64_t m){
 }
 
 int main(){
-    ios::sync_with_stdio(false);
-    cin.tie(0);
-
     int N;
     cin >> N;
     int64_t sum = 0;
