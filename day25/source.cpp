@@ -136,30 +136,185 @@ void run_to_wait(Computer &pc){
     while(pc.step()){
         steps++;
     }
+}
+
+void run_to_wait_and_print(Computer &pc){
+    int steps = 0;
+    while(pc.step()){
+        steps++;
+    }
+    string s;
     while(!pc.out.empty()){
         int out = pc.out.front(); pc.out.pop();
-        cout << (char)out;
+        s += (char)out;
     }
+    cout << s << endl;
 }
 
 void string_to_pc(Computer &pc, string s){
+    cout << s << endl;
     for(auto c : s){
         // if(c == 0) continue;
         pc.in.push((int)c);
     }
+    pc.in.push((int)'\n');
+}
+
+const vector<string> dir = {"north", "east", "south", "west"};
+
+bool canGoDir(smatch &matches, int d){
+    return matches[3+d] != "";
+}
+
+vector<string> itemBlackList = {
+    "escape pod", "infinite loop", "molten lava", "giant electromagnet",
+    "photons",
+};
+
+bool itemBlackListed(string s){
+    for(auto t : itemBlackList)
+        if(s == t) return true;
+    return false;
 }
 
 int main(){
     Computer pc(program);
-    run_to_wait(pc);
-
+    int d = 0;
+    int attempts = 0;
+    vector<string> inv;
     while(true){
-        string s;
-        getline(cin, s);
-        string_to_pc(pc, s);
-        string_to_pc(pc, "\n");
+        // string_to_pc(pc, "south\n");
         run_to_wait(pc);
+        string s;
+        while(!pc.out.empty()){
+            int out = pc.out.front(); pc.out.pop();
+            s += (char)out;
+        }
+
+        vector<string> disp;
+        while(true){
+            int endLineIndex = s.find('\n');
+            if(endLineIndex == -1) break;
+            string line = s.substr(0, endLineIndex);
+            s = s.substr(endLineIndex+1);
+            disp.push_back(line);
+            cout << disp.back() << endl;
+        }
+
+        vector<string> command;
+        int i = 0;
+        while(disp[i] == "") i++;
+
+        string location = disp[i++];
+        string description = disp[i++];
+        i++;
+
+        vector<bool> dir_allowed(4, false);
+        if(disp[i] == "Doors here lead:"){
+            i++;
+            for(int d = 0; d < 4; d++){
+                if(disp[i] == "- " + dir[d]){
+                    dir_allowed[d] = true;
+                    i++;
+                }
+            }
+            i++;
+        }
+
+        if(disp[i] == "Items here:"){
+            i++;
+            while(disp[i] != ""){
+                // disp[i] is an item line
+                // cout << disp[i] << endl;
+
+                if(!itemBlackListed(disp[i].substr(2))){
+                    string_to_pc(pc, "take " + disp[i].substr(2));
+                    run_to_wait_and_print(pc);
+                    inv.push_back(disp[i].substr(2));
+                }
+                i++;
+            }
+            i++;
+        }
+
+        if(disp[i] != "Command?"){
+            cout << "unexpected val:" << endl;
+            cout << disp[i] << endl;
+            break;
+        }
+
+        for(;;d = (d + 1) % 4){
+            if(dir_allowed[d]){
+                if(!(location == "== Security Checkpoint ==" && d == 2))
+                    break;
+                attempts++;
+                if(attempts < 2)
+                    continue;
+
+                goto SECURITY;
+            }
+                // CW
+        }
+        string_to_pc(pc, dir[d]);
+        d = (d + 3) % 4; // CCW
+
+
+
     }
+SECURITY:
+    int N = inv.size();
+    vector<bool> held(N, true);
+    for(auto x : inv){
+        cout << x << endl;
+    }
+
+    for(int x=0;x<(1<<N); x++){
+        // try subset x
+        for(int y=0;y<N;y++){
+            if((x & (1<<y)) && !held[y]){
+                string_to_pc(pc, "take " + inv[y]);
+                run_to_wait_and_print(pc);
+                held[y] = true;
+            }
+            else if((x & (1<<y))==0 && held[y]){
+                string_to_pc(pc, "drop " + inv[y]);
+                run_to_wait_and_print(pc);
+                held[y] = false;
+            }
+
+
+        }
+        string_to_pc(pc, "inv");
+        run_to_wait_and_print(pc);
+        string_to_pc(pc, "south");
+        run_to_wait(pc);
+        string s;
+        while(!pc.out.empty()){
+            int out = pc.out.front(); pc.out.pop();
+            s += (char)out;
+        }
+        cout << s;
+        if(pc.halted) break;
+
+        if(s.find("Droids on this ship are heavier")){
+            cout << "TOO LIGHT" << endl;
+        }
+        else {
+            cout << "UNKNOWN RESPONSE" << endl;
+            break;
+        }
+
+    }
+
+
+    // while(true){
+    //     string s;
+    //     getline(cin, s);
+    //     string_to_pc(pc, s);
+    //     string_to_pc(pc, "\n");
+    //     run_to_wait(pc);
+
+    // }
 
     return 0;
 }
